@@ -7,7 +7,7 @@ from grammar import *
 from qa import *
 from preprocess import * 
 from music_utils import *
-from data_utils import *
+from data_utils import load_music_utils, generate_music
 from keras.models import load_model, Model
 from keras.layers import Dense, Activation, Dropout, Input, LSTM, Reshape, Lambda, RepeatVector
 from keras.initializers import glorot_uniform
@@ -33,11 +33,16 @@ print('Shape of Y:', Y.shape)
 # Define object layer
 
 n_a = 64 
-reshapor = Reshape((1, 78))                        
-LSTM_cell = LSTM(n_a, return_state = True)         
-densor = Dense(n_values, activation='softmax')     
+# reshapor = Reshape((1, 78))                        
+# LSTM_cell = LSTM(n_a, return_state = True)         
+# densor = Dense(n_values, activation='softmax')     
 
-def djmodel(Tx, n_a, n_values):
+# n_a = 64 
+# m = 60
+# a0 = np.zeros((m, n_a))
+# c0 = np.zeros((m, n_a))
+
+def djmodel(Tx, n_a, n_values, reshapor, LSTM_cell, densor):
     X = Input(shape=(Tx, n_values))
     a0 = Input(shape=(n_a,), name='a0')
     c0 = Input(shape=(n_a,), name='c0')
@@ -58,23 +63,13 @@ def djmodel(Tx, n_a, n_values):
     
     return model
 
-model = djmodel(Tx = 30 , n_a = 64, n_values = 78)
-print(model)
-opt = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, decay=0.01)
+# opt = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, decay=0.01)
 
-model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+# model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
 
-m = 60
-a0 = np.zeros((m, n_a))
-c0 = np.zeros((m, n_a))
-
-model.fit([X, a0, c0], list(Y), epochs=100)
 
 
 def music_inference_model(LSTM_cell, densor, n_values = 78, n_a = 64, Ty = 100):
-    """
-    Uses the trained "LSTM_cell" and "densor" from model() to generate a sequence of values.
-    """
     # Define the input of model with a shape 
     x0 = Input(shape=(1, n_values))
     
@@ -107,8 +102,32 @@ def music_inference_model(LSTM_cell, densor, n_values = 78, n_a = 64, Ty = 100):
     
     return inference_model
 
-inference_model = music_inference_model(LSTM_cell, densor, n_values = 78, n_a = 64, Ty = 100)
+# inference_model = music_inference_model(LSTM_cell, densor, n_values = 78, n_a = 64, Ty = 100)
+# print(inference_model.summary())
+# #Generate music
+# out_stream = generate_music(inference_model)
 
-#Generate music
-out_stream = generate_music(inference_model)
 
+from flask import Flask
+
+app = Flask(__name__)
+@app.route('/')
+def generate_music_lstm():
+    n_a = 64 
+    reshapor = Reshape((1, 78))                        
+    LSTM_cell = LSTM(n_a, return_state = True)         
+    densor = Dense(n_values, activation='softmax')  
+    n_a = 64 
+    m  = 60
+    a0 = np.zeros((m, n_a))
+    c0 = np.zeros((m, n_a))
+    model = djmodel(Tx = 30 , n_a = 64, n_values = 78, reshapor =reshapor, LSTM_cell = LSTM_cell, densor = densor)
+    opt = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, decay=0.01)
+    model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+    model.fit([X, a0, c0], list(Y), epochs=100)
+    inference_model = music_inference_model(LSTM_cell=LSTM_cell, densor=densor, n_values = 78, n_a = 64, Ty = 100)
+    out_stream = generate_music(inference_model)
+    return out_stream
+
+if __name__ == '__main__':
+    app.run()

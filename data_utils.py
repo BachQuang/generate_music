@@ -1,14 +1,10 @@
 from music_utils import * 
 from preprocess import * 
 from keras.utils import to_categorical
-
+import datetime
 chords, abstract_grammars = get_musical_data('data/original_metheny.mid')
 corpus, tones, tones_indices, indices_tones = get_corpus_data(abstract_grammars)
 N_tones = len(set(corpus))
-n_a = 64
-x_initializer = np.random.randint(1, 80, (1, 1, 78))
-a_initializer = np.random.randint(1, 15, (1, n_a))
-c_initializer = np.random.randint(1, 15, (1, n_a))
 
 def load_music_utils():
     chords, abstract_grammars = get_musical_data('data/original_metheny.mid')
@@ -34,7 +30,11 @@ def generate_music(inference_model, corpus = corpus, abstract_grammars = abstrac
     Returns:
     predicted_tones - python list containing predicted tones
     """
-    
+    n_a = 64
+    x_initializer = np.random.randint(1, 80, (1, 1, 78))
+    a_initializer = np.random.randint(1, 15, (1, n_a))
+    c_initializer = np.random.randint(1, 15, (1, n_a))
+
     # set up audio stream
     out_stream = stream.Stream()
     
@@ -42,7 +42,7 @@ def generate_music(inference_model, corpus = corpus, abstract_grammars = abstrac
     curr_offset = 0.0                                     # variable used to write sounds to the Stream.
     num_chords = int(len(chords) / 3)                     # number of different set of chords
     
-    print("Predicting new values for different set of chords.")
+    # print("Predicting new values for different set of chords.")
     # Loop over all 18 set of chords. At each iteration generate a sequence of tones
     # and use the current chords to convert it into actual sounds 
     for i in range(1, num_chords):
@@ -59,8 +59,8 @@ def generate_music(inference_model, corpus = corpus, abstract_grammars = abstrac
         #print('----')
         #print(x_initializer)
         _, indices = predict_and_sample(inference_model, x_initializer, a_initializer, c_initializer)
-        print(_)
-        print(indices)
+        # print(_)
+        # print(indices)
         indices = list(indices.squeeze())
         pred = [indices_tones[p] for p in indices]
         
@@ -86,7 +86,7 @@ def generate_music(inference_model, corpus = corpus, abstract_grammars = abstrac
         # Quality assurance: clean up sounds
         sounds = clean_up_notes(sounds)
         
-        print('Generated %s sounds using the predicted values for the set of chords ("%s") and after pruning' % (len([k for k in sounds if isinstance(k, note.Note)]), i))
+        # print('Generated %s sounds using the predicted values for the set of chords ("%s") and after pruning' % (len([k for k in sounds if isinstance(k, note.Note)]), i))
         
         # Insert sounds into the output stream
         for m in sounds:
@@ -99,17 +99,21 @@ def generate_music(inference_model, corpus = corpus, abstract_grammars = abstrac
     # Initialize tempo of the output stream with 130 bit per minute
     out_stream.insert(0.0, tempo.MetronomeMark(number=130))
     # Save audio stream to fine
+
     mf = midi.translate.streamToMidiFile(out_stream)
-    mf.open("output/my_music_1001.midi", 'wb')
+    now = str(datetime.datetime.now())
+    print(now)
+    data_return = "output/my_music_" + now + ".midi"
+    mf.open("output/my_music_" + now + ".midi", 'wb')
     mf.write()
-    print("Your generated music is saved in output/my_music_1001.midi")
+    print("Your generated music is saved in output/my_music_" + now + ".midi")
     mf.close()
     
-    return out_stream
+    return data_return
 
 
-def predict_and_sample(inference_model, x_initializer = x_initializer, a_initializer = a_initializer, 
-                       c_initializer = c_initializer):
+def predict_and_sample(inference_model, x_initializer, a_initializer, 
+                       c_initializer):
     """
     Predicts the next value of values using the inference model.
     
